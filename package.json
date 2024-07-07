@@ -1,0 +1,14 @@
+{
+  "name": "bunny",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "test": "./test"
+  },
+  "bin": {
+    "bunny": "scripts/bunny"
+  },
+  "keywords": [],
+  "author": "Ken Snyder <ken@ken.net>",
+  "license": "MIT"
+}

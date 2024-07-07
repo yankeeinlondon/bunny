@@ -1,0 +1,318 @@
+#!/usr/bin/env bash
+
+export RESET='\033[0m'
+
+export RED='\033[31m'
+export GREEN='\033[32m'
+export BLUE='\033[34m'
+export MAGENTA='\033[35m'
+
+export BRIGHT_RED='\033[91m'
+export BRIGHT_GREEN='\033[92m'
+export BRIGHT_BLUE='\033[94m'
+
+export BOLD='\033[1m'
+export NO_BOLD='\033[21m'
+export DIM='\033[2m'
+export NO_DIM='\033[22m'
+export ITALIC='\033[3m'
+export NO_ITALIC='\033[23m'
+
+
+# log
+#
+# Logs the parameters passed to STDERR
+function log() {
+    printf "%b\\n" "${*}" >&2
+}
+
+function error() {
+  printf "%b\\n" "${*}" >&2
+
+  exit 1
+}
+
+# debug <fn> <msg> <...>
+# 
+# Logs to STDERR when the DEBUG env variable is set
+# and not equal to "false".
+function debug() {
+    local -r DEBUG=$(lc "${DEBUG:-}")
+    if [[ "${DEBUG}" != "false" ]]; then
+        if (( $# > 1 )); then
+            local fn="$1"
+
+            shift
+            local regex=""
+            local lower_fn="" 
+            lower_fn=$(lc "$fn")
+            regex="(.*[^a-z]+|^)$lower_fn($|[^a-z]+.*)"
+
+            if [[ "${DEBUG}" == "true" || "${DEBUG}" =~ $regex ]]; then
+                log "       ${GREEN}◦${RESET} ${BOLD}${fn}()${RESET} → ${*}"
+            fi
+        else
+            log "       ${GREEN}DEBUG: ${RESET} → ${*}"
+        fi
+    fi
+}
+
+# is_array() <ref:var>
+#
+# tests whether the passed in variable reference is
+# a base array.
+#
+# Note: this only works on later versions of bash which
+# definitely means not v3 but also may exclude parts of v4
+#
+# Note: this check only works after the variable passed in
+# is actually set and set -u is in effect
+function is_array() {
+    local -n __var__=$1 2>/dev/null
+    local -r test=${__var__@a} 2>/dev/null
+
+    if is_bound __var__; then
+        if not_empty "$test" && [[ $test = a ]]; then
+            debug "is_array" "is an array!"
+            return 0; # true
+        else
+            debug "is_array" "' is not an array!"
+            return 1; # false
+        fi
+    else
+        debug "is_array" "is_array was called without a reference so returning false!"
+        return 1
+    fi
+
+}
+
+# is_empty() <test | ref:test>
+# 
+# tests whether the <test> value passed in is an empty string (or is unset)
+# and returns 0 when it is empty and 1 when it is NOT.
+function is_empty() {
+  if [ -z "$1" ] || [[ "$1" == "" ]]; then
+      return 0
+  else
+      return 1
+  fi
+}
+
+# file_exists <filepath>
+#
+# tests whether a given filepath exists in the filesystem
+function file_exists() {
+    local filepath="${1:?filepath is missing}"
+
+    if [ -f "${filepath}" ]; then
+        return 0;
+    else
+        return 1;
+    fi
+}
+
+# has_command <cmd>
+#
+# checks whether a particular program passed in via $1 is installed 
+# on the OS or not (at least within the $PATH)
+function has_command() {
+    local -r cmd="${1:?cmd is missing}"
+
+    if command -v "${cmd}" &> /dev/null; then
+        return 0
+    else 
+        return 1
+    fi
+}
+
+# ends_with <look-for> <content>
+function ends_with() {
+    local -r look_for="${1:?No look-for string provided to ends_with}"
+    local -r content="${2}"
+    local -r no_suffix="${content%"${look_for}"}"
+
+    if is_empty "${content}"; then
+        debug "ends_with" "ends_with(${look_for}, "") was passed empty content so will always return false"
+        return 1;
+    fi
+
+    if [[ "${content}" == "${no_suffix}" ]]; then
+        debug "ends_with" "false (\"${DIM}${look_for}${RESET}\")"
+        return 1;
+    else
+        debug "ends_with" "true (\"${DIM}${look_for}${RESET}\")"
+        return 0;
+    fi
+}
+
+function push() {
+    local -n __array__=$1
+    local -ra params=( "$@" )
+    local -ra __params__=("${params[@]:1}")
+
+    if is_array __array__; then
+      __array__+=(_ref_key "${__params_[@]}")
+      return 0
+    fi
+}
+
+function runtime_family() {
+  local -r filepath="${1:?no filepath provideded!}"
+  if ends_with ".ts"; then
+    echo "ts"
+  elif ends_with ".tsx"; then 
+    echo "ts"
+  elif ends_with ".mts"; then
+    echo "ts"
+  elif ends_with ".cts"; then
+    echo "ts"
+  elif ends_with ".wasm"; then
+    echo "wasm"
+  elif ends_with ".wat"; then
+    echo "wasm"
+  elif ends_with ".js"; then
+    echo "js"
+  elif ends_with ".mjs"; then
+    echo "js"
+  elif ends_with ".cjs"; then
+    echo "js"
+  fi
+}
+
+# MAIN CLI
+
+# detect_runtime <file or ext> <ref:avail> <ref:unavail>
+#
+# detects which runtimes are available for a given file extension
+# and which are not.
+function detect_runtime {
+  local -r filepath="${1:?no filepath provided}"
+  local -n __avail
+  local -n __unavail
+  local -r family=ends_with ".ts" "$filepath" && echo "ts" || ends_with ".tsx" && echo "ts" || echo "js"
+  local -a avail=()
+  local -a unavail=()
+
+  case "$family" in
+
+    ts)
+
+      if has_command "bun"; then
+        push avail "bun"
+      else
+        push unavail "bun"
+      fi
+
+      if has_command "deno"; then
+        push avail "deno"
+      else
+        push unavail "deno"
+      fi
+
+      if has_command "tsx"; then
+        push avail "tsx";
+      else
+        push unavail "tsx"
+      fi
+
+      if has_command "ts-node"; then
+        push avail "ts-node";
+      else
+        push unavail "ts-node"
+      fi
+      break
+      ;;
+    
+    wasm)
+      if has_command "wasmer"; then
+        push avail "wasmer";
+      else
+        push unavail "wasmer";
+      fi
+
+      if has_command 'wasmtime'; then 
+        push avail 'wasmtime';
+      else
+        push unavail 'wasmtime';
+      fi
+
+      if has_command 'nix-shell'; then
+        push avail 'nix-shell';
+      else
+        push unavail 'nix-shell';
+      fi
+      break
+      ;;
+
+    js)
+      if has_command 'bun'; then
+        push avail 'bun'
+┆     else
+┆       push unavail 'bun'
+┆     fi
+
+      if has_command 'node'; then
+        push avail 'node';
+      else 
+        push unavail 'node';
+      fi
+┆   
+┆     if has_command 'deno'; then
+┆       push avail 'deno';
+┆     else
+┆       push unavail 'deno';
+┆     fi
+
+      if has_command 'nix-shell'; then
+        push avail 'nix-shell';
+      else
+        push unavail 'nix-shell';
+      fi
+      break
+      ;;
+
+    *)
+      error "Unknown file type passed in for bunny run: ${BOLD}${filepath}${RESET}"
+      exit 1
+  esac
+
+  __avail=avail
+  __unavail=unavail
+}
+
+if is_empty "${1:-}"; then
+  error "no target program given for ${BOLD}bunny${RESET} to run!"
+else 
+  if ! file_exists "$1"; then 
+    error "the target program ${BLUE}$1${RESET} ${ITALIC}does not${RESET} exist!"
+  fi
+fi
+
+if is_wasm "$1"; then 
+  if has_command "wasmer"; then 
+    wasmer "$1"
+  elif has_command "wasmtime"; then 
+    wasmtime "$1"
+  elif has_command "nix-shell"; then 
+    nix-shell -p wasmer --run "wasmer $1"
+  else
+    error "Unable to find a WASM runtime to use to run ${BLUE}$1${RESET}!"
+  fi
+else
+
+  if has_command "bun"; then 
+    bun run "$1"
+  elif has_command "deno"; then 
+    deno run "$1"
+  elif has_command "tsx"; then
+    tsx "$1"
+  elif is_javascript "$1" && has_command "node"; then 
+    node "$1"
+  elif has_command "ts-node"; then 
+    ts-node "$1"
+  elif has_command "nix-shell"; then 
+    nix-shell -p bun --run "bun run $1"
+  else 
+    error "${BOLD}${RED}Error:${RESET} failed to find a JS/TS runtime to run ${BLUE}${1}${RESET}\n\nTo run you must install any of the following:\n"
+  fi 
+fi

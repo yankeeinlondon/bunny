@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+
+export RESET='\033[0m'
+export GREEN='\033[38;5;2m'
+export RED='\033[38;5;1m'
+export BOLD='\033[1m'
+export NO_BOLD='\033[21m'
+export STRIKE='\033[9m'
+export NO_STRIKE='\033[29m'
+
+# has_command <cmd>
+#
+# checks whether a particular program passed in via $1 is installed 
+# on the OS or not (at least within the $PATH)
+function has_command() {
+    local -r cmd="${1:?cmd is missing}"
+
+    if command -v "${cmd}" &> /dev/null; then
+        return 0
+    else 
+        return 1
+    fi
+}
+
+function log() {
+    printf "%b\\n" "${*}" >&2
+}
+
+log "🐇 ${BOLD}bunny${RESET} testing"
+log "-------------------------------------------------"
+log ""
+
+log "- Host Diagnostics"
+log ""
+log "- based on the PATH available, the following runtimes are available on the host"
+log "  system for the given file types:"
+log "- JS/MJS/CJS files: "
+log "- TS/TSX files: "
+log ""
+log "${BOLD}Unit Tests{RESET}"
+log ""
+
+
