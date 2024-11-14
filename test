@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# shellcheck source=scripts/bunny
+. "./scripts/bunny"
+
+catch_errors
 
 export RESET='\033[0m'
 export GREEN='\033[38;5;2m'
@@ -31,14 +35,22 @@ log "🐇 ${BOLD}bunny${RESET} testing"
 log "-------------------------------------------------"
 log ""
 
+JS_Avail=()
+JS_Unavail=()
+declare -a TS_Avail=()
+declare -a TS_Unavail=()
+
+detect_runtime "file.js" JS_Avail JS_Unavail
+detect_runtime "file.ts" TS_Avail TS_Unavail
+
 log "- Host Diagnostics"
 log ""
 log "- based on the PATH available, the following runtimes are available on the host"
 log "  system for the given file types:"
-log "- JS/MJS/CJS files: "
-log "- TS/TSX files: "
+log "- JS/MJS/CJS files: ${JS_Avail[*]}; ${STRIKE}${JS_Unavail[*]}${RESET}"
+log "- TS/TSX files: ${TS_Avail[*]}; ${STRIKE}${TS_Unavail[*]}${RESET}"
 log ""
-log "${BOLD}Unit Tests{RESET}"
+log "${BOLD}Unit Tests${RESET}"
 log ""
 
 
